@@ -77,6 +77,7 @@ UBRR = (F_CPU / (16 × BAUD)) - 1
 ```
 
 - This is a **16-bit value**, split across `UBRR0H` (high byte `0x0D`) and `UBRR0L` (low byte `0x04`).
+- UBRR is USART Baud Rate Register
 - **Why 300 baud?** Li-Fi with simple LED/photodiode circuits has limited bandwidth. 300 bits/second is slow but reliable for basic optical transmission.
 
 #### 8N1 Frame Format
