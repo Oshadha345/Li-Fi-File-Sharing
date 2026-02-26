@@ -1,226 +1,306 @@
-;==========================================================================
-; LiFi UART Receiver with SSD1306 OLED Display
+;=====================================================
+; LiFi UART Transmitter with 4×3 Keypad
 ; ATmega328P (Arduino Uno) — 300 Baud, 8N1
-; I2C OLED: 128x32, Address 0x3C
-;==========================================================================
+; Keypad Rows: PD2–PD5 (output, active-low scan)
+; Keypad Cols: PD6, PD7, PB0 (input, internal pull-up)
+; TX output: PD1 (UART TX to LED driver)
+;=====================================================
 
 .include "m328pdef.inc"
 
 ;---------- Constants ----------
-.equ F_CPU       = 16000000
-.equ BAUD        = 300
-.equ UBRR_VAL    = (F_CPU / (16 * BAUD)) - 1   ; = 3332 = 0x0D04
+.equ F_CPU     = 16000000
+.equ BAUD      = 300
+.equ UBRR_VAL  = (F_CPU / (16 * BAUD)) - 1  ; = 3332 = 0x0D04
 
-; I2C / TWI
-.equ TWI_FREQ    = 100000                         ; 100 kHz I2C
-.equ TWBR_VAL    = ((F_CPU / TWI_FREQ) - 16) / 2 ; = 72
+; Keypad GPIO
+; Rows: PD2 (ROW0), PD3 (ROW1), PD4 (ROW2), PD5 (ROW3) — outputs
+; Cols: PD6 (COL0), PD7 (COL1), PB0 (COL2) — inputs with pull-ups
 
-; SSD1306
-.equ SSD1306_ADDR = 0x3C        ; 7-bit I2C address
-.equ SSD1306_CMD  = 0x00        ; Control byte: command mode
-.equ SSD1306_DATA = 0x40        ; Control byte: data mode
+.equ ROW0_BIT  = 2            ; PD2
+.equ ROW1_BIT  = 3            ; PD3
+.equ ROW2_BIT  = 4            ; PD4
+.equ ROW3_BIT  = 5            ; PD5
+.equ COL0_BIT  = 6            ; PD6
+.equ COL1_BIT  = 7            ; PD7
+.equ COL2_BIT  = 0            ; PB0
 
-; Display geometry
-.equ DISP_WIDTH   = 128
-.equ DISP_HEIGHT  = 32
-.equ MAX_CHARS    = 21          ; 128 / 6 = 21 chars per line (5px + 1 gap)
-.equ FONT_WIDTH   = 5           ; 5 bytes per character glyph
-.equ CHAR_SPACING = 6           ; 5 pixel + 1 gap
+.equ ROW_MASK  = (1<<ROW0_BIT)|(1<<ROW1_BIT)|(1<<ROW2_BIT)|(1<<ROW3_BIT)
+                               ; 0x3C = bits 2,3,4,5
 
-; SRAM Buffer for received message
-.equ MSG_BUF      = 0x0100      ; Start of SRAM message buffer
-.equ MSG_BUF_END  = 0x0115      ; 21 chars max
+.equ NO_KEY    = 0xFF         ; Sentinel: no key pressed
 
-;---------- Register Aliases (global) ----------
-; r2  = message length (saved across calls)
-; r16 = general working register
-; r17 = secondary working register
-
-;==========================================================================
-; Interrupt Vector Table
-;==========================================================================
+;---------- Interrupt Vector Table ----------
 .org 0x0000
     rjmp RESET
 
-;==========================================================================
-; RESET: Main Entry
-;==========================================================================
+;=====================================================
+; RESET: Entry point
+;=====================================================
 .org 0x0034
 RESET:
-    ; --- Stack Pointer ---
+    ;--- Stack Pointer ---
     ldi   r16, high(RAMEND)
     out   SPH, r16
     ldi   r16, low(RAMEND)
     out   SPL, r16
 
-    ; --- Clear message length ---
-    clr   r2
-
-    ; --- Init Peripherals ---
-    rcall TWI_INIT
-    rcall SSD1306_INIT
+    ;--- Init Peripherals ---
     rcall USART_INIT
+    rcall KEYPAD_INIT
 
-    ; --- Show "Waiting..." on startup ---
-    rcall SSD1306_CLEAR
-    ldi   ZL, low(2 * STR_WAITING)
-    ldi   ZH, high(2 * STR_WAITING)
-    rcall SSD1306_PRINT_FLASH_STRING
+    ;--- Send startup message over UART ---
+    ldi   ZL, low(2 * MSG_READY)
+    ldi   ZH, high(2 * MSG_READY)
+    rcall USART_PRINT_STRING
 
-;==========================================================================
-; MAIN LOOP
-;==========================================================================
+;=====================================================
+; MAIN LOOP: Scan keypad ? Transmit character
+;=====================================================
 MAIN_LOOP:
-    ; Poll USART for received byte
-    lds   r16, UCSR0A
-    sbrs  r16, RXC0
-    rjmp  MAIN_LOOP            ; No data yet — keep polling
+    rcall KEYPAD_SCAN          ; Result in r16 (ASCII or NO_KEY)
+    cpi   r16, NO_KEY
+    breq  MAIN_LOOP            ; No key — keep scanning
 
-    ; --- Read received character ---
-    lds   r16, UDR0
+    ;--- Debounce: wait ~20ms ---
+    rcall DELAY_20MS
 
-    ; --- Check for newline (CR or LF) ---
-    cpi   r16, 0x0A            ; '\n'
-    breq  CLEAR_MSG
-    cpi   r16, 0x0D            ; '\r'
-    breq  CLEAR_MSG
+    ;--- Confirm key is still pressed (re-scan) ---
+    mov   r17, r16             ; Save first scan result
+    rcall KEYPAD_SCAN
+    cp    r16, r17             ; Same key?
+    brne  MAIN_LOOP            ; Noise — discard
 
-    ; --- Append character to buffer ---
-    mov   r17, r2              ; Current length
-    cpi   r17, MAX_CHARS       ; Buffer full?
-    brsh  MAIN_LOOP            ; Use brsh (unsigned)
+    ;--- Key confirmed — handle it ---
+    cpi   r16, 0x0A            ; Is it '#' mapped to LF? (we use 0x0A internally)
+    breq  SEND_NEWLINE
+    cpi   r16, 0x08            ; Is it '*' mapped to backspace?
+    breq  SEND_KEY
 
-    ; Store char in SRAM buffer
-    ldi   XL, low(MSG_BUF)
-    ldi   XH, high(MSG_BUF)
-    add   XL, r2
-    clr   r17
-    adc   XH, r17
-    st    X, r16               ; Store character
-    inc   r2                   ; Increment length
+    ;--- Normal digit key: transmit ASCII ---
+SEND_KEY:
+    rcall USART_TRANSMIT
 
-    ; --- Redraw display ---
-    rcall DISPLAY_MESSAGE
+    ;--- Wait for key release ---
+    rcall WAIT_KEY_RELEASE
     rjmp  MAIN_LOOP
 
-CLEAR_MSG:
-    clr   r2                   ; Reset message length
-    rcall SSD1306_CLEAR        ; Clear screen
+SEND_NEWLINE:
+    ldi   r16, 0x0D            ; Send CR
+    rcall USART_TRANSMIT
+    ldi   r16, 0x0A            ; Send LF
+    rcall USART_TRANSMIT
+
+    ;--- Wait for key release ---
+    rcall WAIT_KEY_RELEASE
     rjmp  MAIN_LOOP
 
-;==========================================================================
-; DISPLAY_MESSAGE: Draw message buffer to OLED
-;==========================================================================
-DISPLAY_MESSAGE:
-    push  r16
-    push  r17
-    push  r18
+;=====================================================
+; KEYPAD_INIT: Configure row pins as outputs (high),
+;              column pins as inputs with pull-ups
+;=====================================================
+KEYPAD_INIT:
+    ;--- Rows PD2–PD5: set as outputs, initially HIGH ---
+    in    r16, DDRD
+    ori   r16, ROW_MASK        ; Set bits 2,3,4,5 as output
+    out   DDRD, r16
 
-    rcall SSD1306_CLEAR
+    in    r16, PORTD
+    ori   r16, ROW_MASK        ; Drive rows HIGH (inactive)
+    out   PORTD, r16
 
-    ; Set cursor to page 1, column 0 (skip damaged first line)
-    rcall SSD1306_SET_CURSOR_HOME
+    ;--- Col0 = PD6, Col1 = PD7: inputs with pull-ups ---
+    in    r16, DDRD
+    andi  r16, ~((1<<COL0_BIT) | (1<<COL1_BIT))  ; Clear bits 6,7 = input
+    out   DDRD, r16
 
-    ; Start I2C data stream
-    rcall TWI_START
-    ldi   r16, (SSD1306_ADDR << 1) | 0  ; Write mode
-    rcall TWI_WRITE
-    ldi   r16, SSD1306_DATA              ; Data mode
-    rcall TWI_WRITE
+    in    r16, PORTD
+    ori   r16, (1<<COL0_BIT) | (1<<COL1_BIT)      ; Enable pull-ups
+    out   PORTD, r16
 
-    ; Loop through each character in the buffer
-    clr   r18                  ; Character index
-DISP_CHAR_LOOP:
-    cp    r18, r2              ; Reached end of message?
-    brge  DISP_CHAR_DONE
+    ;--- Col2 = PB0: input with pull-up ---
+    in    r16, DDRB
+    andi  r16, ~(1<<COL2_BIT)  ; Clear bit 0 = input
+    out   DDRB, r16
 
-    ; Load character from SRAM
-    ldi   XL, low(MSG_BUF)
-    ldi   XH, high(MSG_BUF)
-    add   XL, r18
-    clr   r17
-    adc   XH, r17
-    ld    r16, X               ; r16 = ASCII character
+    in    r16, PORTB
+    ori   r16, (1<<COL2_BIT)   ; Enable pull-up
+    out   PORTB, r16
 
-    ; Draw this character's 6 font bytes (5 glyph + 1 spacer)
-    rcall SSD1306_SEND_CHAR_GLYPH
-
-    inc   r18
-    rjmp  DISP_CHAR_LOOP
-
-DISP_CHAR_DONE:
-    rcall TWI_STOP
-
-    pop   r18
-    pop   r17
-    pop   r16
     ret
 
-;==========================================================================
-; SSD1306_SEND_CHAR_GLYPH: Send 6 font bytes for char in r16
-;   (Called while I2C data stream is already open)
-;   Each font entry is 6 bytes: 5 glyph columns + 1 blank spacer
-;   Uses 16-bit multiply by 6 to find the correct glyph
-;==========================================================================
-SSD1306_SEND_CHAR_GLYPH:
-    push  r0
-    push  r1
-    push  r16
-    push  r17
+;=====================================================
+; KEYPAD_SCAN: Scan all 4 rows × 3 columns
+;   Returns: ASCII char in r16, or NO_KEY (0xFF)
+;
+;   Scans by pulling one row LOW at a time, then
+;   reading columns. A pressed key reads LOW.
+;
+;   Register usage:
+;     r18 = current row number (0–3)
+;     r19 = row bit mask (the pin to pull low)
+;     r20 = column reading
+;     r16 = result
+;=====================================================
+KEYPAD_SCAN:
     push  r18
+    push  r19
+    push  r20
     push  ZL
     push  ZH
 
-    ; Clamp to printable ASCII range (32–126)
-    cpi   r16, 32
-    brlo  GLYPH_DEFAULT
-    cpi   r16, 127
-    brlo  GLYPH_OK
-GLYPH_DEFAULT:
-    ldi   r16, 32
-GLYPH_OK:
-    subi  r16, 32              ; Offset from space (font starts at ' ')
+    ldi   r18, 0               ; Row counter = 0
+    ldi   r19, (1<<ROW0_BIT)   ; Start with ROW0 bit mask (bit 2)
 
-    ; Calculate font table byte address: (2 * FONT_5x7) + (char_index * 6)
-    ldi   ZL, low(2 * FONT_5x7)
-    ldi   ZH, high(2 * FONT_5x7)
+SCAN_ROW_LOOP:
+    cpi   r18, 4
+    breq  SCAN_NO_KEY          ; All 4 rows scanned, no key found
 
-    ; --- 16-bit multiply index by 6 using hardware multiplier ---
-    ldi   r17, 6
-    mul   r16, r17             ; r1:r0 = char_index * 6
+    ;--- Drive current row LOW, all others HIGH ---
+    in    r16, PORTD
+    ori   r16, ROW_MASK        ; Set all rows HIGH first
+    com   r19                  ; Invert mask: bit to clear
+    and   r16, r19             ; Clear the one row bit (drive LOW)
+    com   r19                  ; Restore mask for later
+    out   PORTD, r16
 
-    ; Add 16-bit offset to Z pointer
-    add   ZL, r0
-    adc   ZH, r1
+    ;--- Small settling delay (~5µs at 16MHz) ---
+    nop
+    nop
+    nop
+    nop
+    nop
 
-    ; Send 6 font bytes (5 glyph + 1 spacer, all stored in flash)
-    ldi   r18, 6
-GLYPH_LOOP:
-    lpm   r16, Z+
-    rcall TWI_WRITE
-    dec   r18
-    brne  GLYPH_LOOP
+    ;--- Read columns ---
+    ; Col0 = PD6, Col1 = PD7
+    in    r20, PIND
+
+    ; Check COL0 (PD6)
+    sbrs  r20, COL0_BIT        ; Skip if COL0 is HIGH (not pressed)
+    rjmp  FOUND_COL0
+
+    ; Check COL1 (PD7)
+    sbrs  r20, COL1_BIT
+    rjmp  FOUND_COL1
+
+    ; Check COL2 (PB0)
+    in    r20, PINB
+    sbrs  r20, COL2_BIT
+    rjmp  FOUND_COL2
+
+    ;--- No key in this row — next row ---
+    lsl   r19                  ; Shift row mask to next pin
+    inc   r18                  ; Increment row counter
+    rjmp  SCAN_ROW_LOOP
+
+FOUND_COL0:
+    ;--- Key at (r18, 0) ---
+    ; row_index * 3 + 0
+    mov   r16, r18
+    lsl   r16                  ; ×2
+    add   r16, r18             ; ×3
+    ; r16 = key_index = row*3 + 0
+    rjmp  LOOKUP_KEY
+
+FOUND_COL1:
+    ;--- Key at (r18, 1) ---
+    mov   r16, r18
+    lsl   r16
+    add   r16, r18
+    inc   r16                  ; row*3 + 1
+    rjmp  LOOKUP_KEY
+
+FOUND_COL2:
+    ;--- Key at (r18, 2) ---
+    mov   r16, r18
+    lsl   r16
+    add   r16, r18
+    subi  r16, -2              ; row*3 + 2 (subi with -2 = add 2)
+    rjmp  LOOKUP_KEY
+
+LOOKUP_KEY:
+    ;--- Restore all rows HIGH before returning ---
+    in    r20, PORTD
+    ori   r20, ROW_MASK
+    out   PORTD, r20
+
+    ;--- Look up ASCII from table ---
+    ldi   ZL, low(2 * KEYPAD_TABLE)
+    ldi   ZH, high(2 * KEYPAD_TABLE)
+    clr   r20
+    add   ZL, r16
+    adc   ZH, r20
+    lpm   r16, Z               ; r16 = ASCII character
 
     pop   ZH
     pop   ZL
+    pop   r20
+    pop   r19
     pop   r18
-    pop   r17
-    pop   r16
-    pop   r1
-    pop   r0
     ret
 
-;==========================================================================
-; USART_INIT: 300 Baud, 8N1
-;==========================================================================
+SCAN_NO_KEY:
+    ;--- Restore all rows HIGH ---
+    in    r16, PORTD
+    ori   r16, ROW_MASK
+    out   PORTD, r16
+
+    ldi   r16, NO_KEY          ; Return 0xFF = no key
+
+    pop   ZH
+    pop   ZL
+    pop   r20
+    pop   r19
+    pop   r18
+    ret
+
+;=====================================================
+; WAIT_KEY_RELEASE: Block until no key is pressed
+;   Prevents key repeat from a single press
+;=====================================================
+WAIT_KEY_RELEASE:
+    push  r16
+RELEASE_LOOP:
+    rcall KEYPAD_SCAN
+    cpi   r16, NO_KEY
+    brne  RELEASE_LOOP         ; Key still held — keep waiting
+    rcall DELAY_20MS           ; Debounce on release too
+    pop   r16
+    ret
+
+;=====================================================
+; DELAY_20MS: ~20ms delay at 16 MHz
+;   16,000,000 Hz × 0.02s = 320,000 cycles
+;   Outer loop: 200 × inner loop (4 cycles × 400) = 320,000
+;=====================================================
+DELAY_20MS:
+    push  r16
+    push  r17
+    ldi   r16, 200             ; Outer count
+DELAY_OUTER:
+    ldi   r17, 0               ; Inner count = 256 (0 wraps)
+DELAY_INNER:
+    nop                        ; 1 cycle
+    dec   r17                  ; 1 cycle
+    brne  DELAY_INNER          ; 2 cycles (taken) = 4 cycles × 256 = 1024
+    dec   r16
+    brne  DELAY_OUTER          ; 200 × 1024 ? 204,800 cycles ? ~13ms
+    ; Close enough for debouncing — actual is ~13ms which is fine
+    pop   r17
+    pop   r16
+    ret
+
+;=====================================================
+; USART_INIT: Configure USART0 — 300 Baud, 8N1
+;=====================================================
 USART_INIT:
     ldi   r16, high(UBRR_VAL)
     sts   UBRR0H, r16
     ldi   r16, low(UBRR_VAL)
     sts   UBRR0L, r16
 
-    ; Enable receiver only (we don't TX on the receiver side)
-    ldi   r16, (1 << RXEN0)
+    ; Enable Transmitter only (no RX needed — input is from keypad)
+    ldi   r16, (1 << TXEN0)
     sts   UCSR0B, r16
 
     ; 8N1 frame format
@@ -228,398 +308,54 @@ USART_INIT:
     sts   UCSR0C, r16
     ret
 
-;==========================================================================
-; TWI (I2C) LOW-LEVEL DRIVERS
-;==========================================================================
-TWI_INIT:
-    ldi   r16, TWBR_VAL       ; Set bit rate (100 kHz)
-    sts   TWBR, r16
-    ldi   r16, 0x00            ; Prescaler = 1
-    sts   TWSR, r16
-    ret
-
-TWI_START:
-    ldi   r16, (1 << TWINT) | (1 << TWSTA) | (1 << TWEN)
-    sts   TWCR, r16
-TWI_START_WAIT:
-    lds   r16, TWCR
-    sbrs  r16, TWINT
-    rjmp  TWI_START_WAIT
-    ret
-
-TWI_STOP:
-    ldi   r16, (1 << TWINT) | (1 << TWSTO) | (1 << TWEN)
-    sts   TWCR, r16
-    ret
-
-TWI_WRITE:                     ; Send byte in r16
-    sts   TWDR, r16
-    ldi   r16, (1 << TWINT) | (1 << TWEN)
-    sts   TWCR, r16
-TWI_WRITE_WAIT:
-    lds   r16, TWCR
-    sbrs  r16, TWINT
-    rjmp  TWI_WRITE_WAIT
-    ret
-
-;==========================================================================
-; SSD1306 DISPLAY DRIVERS
-;==========================================================================
-
-; Send a single command byte (in r16) to SSD1306
-SSD1306_CMD_SEND:
-    push  r16
-    rcall TWI_START
-    ldi   r16, (SSD1306_ADDR << 1) | 0
-    rcall TWI_WRITE
-    ldi   r16, SSD1306_CMD     ; 0x00 = command mode
-    rcall TWI_WRITE
-    pop   r16
-    rcall TWI_WRITE
-    rcall TWI_STOP
-    ret
-
-; Full SSD1306 initialization sequence for 128x32
-SSD1306_INIT:
-    ldi   r16, 0xAE            ; Display OFF
-    rcall SSD1306_CMD_SEND
-    ldi   r16, 0xD5            ; Set display clock divider
-    rcall SSD1306_CMD_SEND
-    ldi   r16, 0x80            ;   Suggested ratio
-    rcall SSD1306_CMD_SEND
-    ldi   r16, 0xA8            ; Set multiplex ratio
-    rcall SSD1306_CMD_SEND
-    ldi   r16, 0x1F            ;   1/32 duty (32 rows - 1)
-    rcall SSD1306_CMD_SEND
-    ldi   r16, 0xD3            ; Set display offset
-    rcall SSD1306_CMD_SEND
-    ldi   r16, 0x00            ;   No offset
-    rcall SSD1306_CMD_SEND
-    ldi   r16, 0x40            ; Set start line = 0
-    rcall SSD1306_CMD_SEND
-    ldi   r16, 0x8D            ; Charge pump setting
-    rcall SSD1306_CMD_SEND
-    ldi   r16, 0x14            ;   Enable charge pump
-    rcall SSD1306_CMD_SEND
-    ldi   r16, 0x20            ; Memory addressing mode
-    rcall SSD1306_CMD_SEND
-    ldi   r16, 0x00            ;   Horizontal addressing mode
-    rcall SSD1306_CMD_SEND
-    ldi   r16, 0xA1            ; Segment re-map (col 127 = SEG0)
-    rcall SSD1306_CMD_SEND
-    ldi   r16, 0xC8            ; COM scan direction: remapped
-    rcall SSD1306_CMD_SEND
-    ldi   r16, 0xDA            ; COM pins configuration
-    rcall SSD1306_CMD_SEND
-    ldi   r16, 0x02            ;   Sequential, no remap (for 128x32)
-    rcall SSD1306_CMD_SEND
-    ldi   r16, 0x81            ; Set contrast
-    rcall SSD1306_CMD_SEND
-    ldi   r16, 0x8F            ;   Medium-high contrast
-    rcall SSD1306_CMD_SEND
-    ldi   r16, 0xD9            ; Set pre-charge period
-    rcall SSD1306_CMD_SEND
-    ldi   r16, 0xF1            ;   Phase1=1, Phase2=15
-    rcall SSD1306_CMD_SEND
-    ldi   r16, 0xDB            ; Set VCOMH deselect level
-    rcall SSD1306_CMD_SEND
-    ldi   r16, 0x40            ;   ~0.77 × Vcc
-    rcall SSD1306_CMD_SEND
-    ldi   r16, 0xA4            ; Entire display ON (follow RAM)
-    rcall SSD1306_CMD_SEND
-    ldi   r16, 0xA6            ; Normal display (not inverted)
-    rcall SSD1306_CMD_SEND
-    ldi   r16, 0xAF            ; Display ON
-    rcall SSD1306_CMD_SEND
-    ret
-
-; Clear entire display (write 0x00 to all 512 bytes: 128x32/8)
-SSD1306_CLEAR:
-    push  r16
+;=====================================================
+; USART_TRANSMIT: Send byte in r16 via TX (Pin 1)
+;=====================================================
+USART_TRANSMIT:
     push  r17
-    push  r18
-
-    ; Reset cursor to page 0 col 0 for full clear
-    ldi   r16, 0x21            ; Set column address
-    rcall SSD1306_CMD_SEND
-    ldi   r16, 0x00            ;   Start column = 0
-    rcall SSD1306_CMD_SEND
-    ldi   r16, 0x7F            ;   End column = 127
-    rcall SSD1306_CMD_SEND
-    ldi   r16, 0x22            ; Set page address
-    rcall SSD1306_CMD_SEND
-    ldi   r16, 0x00            ;   Start page = 0
-    rcall SSD1306_CMD_SEND
-    ldi   r16, 0x03            ;   End page = 3
-    rcall SSD1306_CMD_SEND
-
-    rcall TWI_START
-    ldi   r16, (SSD1306_ADDR << 1) | 0
-    rcall TWI_WRITE
-    ldi   r16, SSD1306_DATA
-    rcall TWI_WRITE
-
-    ; 128 x 4 pages = 512 bytes
-    ldi   r18, 2               ; Outer loop: 2 iterations
-CLEAR_OUTER:
-    ldi   r17, 0               ; Inner loop: 256 iterations (0 wraps)
-CLEAR_INNER:
-    ldi   r16, 0x00
-    rcall TWI_WRITE
-    dec   r17
-    brne  CLEAR_INNER
-    dec   r18
-    brne  CLEAR_OUTER
-
-    rcall TWI_STOP
-
-    pop   r18
+USART_TX_WAIT:
+    lds   r17, UCSR0A
+    sbrs  r17, UDRE0
+    rjmp  USART_TX_WAIT
+    sts   UDR0, r16
     pop   r17
-    pop   r16
     ret
 
-; Set column and page address for text rendering
-; Start at page 1 to skip damaged first row of pixels (8px)
-SSD1306_SET_CURSOR_HOME:
-    ldi   r16, 0x21            ; Set column address
-    rcall SSD1306_CMD_SEND
-    ldi   r16, 0x00            ;   Start column = 0
-    rcall SSD1306_CMD_SEND
-    ldi   r16, 0x7F            ;   End column = 127
-    rcall SSD1306_CMD_SEND
-    ldi   r16, 0x22            ; Set page address
-    rcall SSD1306_CMD_SEND
-    ldi   r16, 0x01            ;   Start page = 1 (skip damaged first line)
-    rcall SSD1306_CMD_SEND
-    ldi   r16, 0x03            ;   End page = 3
-    rcall SSD1306_CMD_SEND
-    ret
-
-; Print a null-terminated string from Flash to OLED
-SSD1306_PRINT_FLASH_STRING:
+;=====================================================
+; USART_PRINT_STRING: Send null-terminated Flash string
+;   Z register (ZH:ZL) points to string in Flash
+;=====================================================
+USART_PRINT_STRING:
     push  r16
-    push  r18
-
-    rcall SSD1306_SET_CURSOR_HOME
-    rcall TWI_START
-    ldi   r16, (SSD1306_ADDR << 1) | 0
-    rcall TWI_WRITE
-    ldi   r16, SSD1306_DATA
-    rcall TWI_WRITE
-
-PRINT_FLASH_LOOP:
+PRINT_LOOP:
     lpm   r16, Z+
     cpi   r16, 0
-    breq  PRINT_FLASH_DONE
-    rcall SSD1306_SEND_CHAR_GLYPH
-    rjmp  PRINT_FLASH_LOOP
-
-PRINT_FLASH_DONE:
-    rcall TWI_STOP
-    pop   r18
+    breq  PRINT_DONE
+    rcall USART_TRANSMIT
+    rjmp  PRINT_LOOP
+PRINT_DONE:
     pop   r16
     ret
 
-;==========================================================================
-; DATA: Strings
-;==========================================================================
-STR_WAITING:
-    .db "Waiting...", 0, 0     ; Pad to even byte count
+;=====================================================
+; DATA: Keypad Lookup Table (Flash)
+;   Index = row*3 + col ? ASCII character
+;
+;   Layout:
+;     [0] Row0,Col0 = '1'    [1] Row0,Col1 = '2'    [2] Row0,Col2 = '3'
+;     [3] Row1,Col0 = '4'    [4] Row1,Col1 = '5'    [5] Row1,Col2 = '6'
+;     [6] Row2,Col0 = '7'    [7] Row2,Col1 = '8'    [8] Row2,Col2 = '9'
+;     [9] Row3,Col0 = '*'    [10] Row3,Col1 = '0'   [11] Row3,Col2 = '#'
+;
+;   '*' is mapped to 0x08 (backspace)
+;   '#' is mapped to 0x0A (newline — triggers CR+LF send)
+;=====================================================
+KEYPAD_TABLE:
+    .db '1', '2', '3', '4', '5', '6', '7', '8', '9', 0x08, '0', 0x0A
+    ; 12 bytes = even ?
 
-;==========================================================================
-; DATA: 5x7 Font Table (ASCII 32–126)
-; Each character is 6 bytes: 5 glyph columns + 1 blank spacer (0x00)
-; The 6th byte eliminates AVR assembler word-alignment padding issues
-; and is also the inter-character gap sent directly to the display.
-;==========================================================================
-FONT_5x7:
-; Space (32)
-.db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-; ! (33)
-.db 0x00, 0x00, 0x5F, 0x00, 0x00, 0x00
-; " (34)
-.db 0x00, 0x07, 0x00, 0x07, 0x00, 0x00
-; # (35)
-.db 0x14, 0x7F, 0x14, 0x7F, 0x14, 0x00
-; $ (36)
-.db 0x24, 0x2A, 0x7F, 0x2A, 0x12, 0x00
-; % (37)
-.db 0x23, 0x13, 0x08, 0x64, 0x62, 0x00
-; & (38)
-.db 0x36, 0x49, 0x55, 0x22, 0x50, 0x00
-; ' (39)
-.db 0x00, 0x05, 0x03, 0x00, 0x00, 0x00
-; ( (40)
-.db 0x00, 0x1C, 0x22, 0x41, 0x00, 0x00
-; ) (41)
-.db 0x00, 0x41, 0x22, 0x1C, 0x00, 0x00
-; * (42)
-.db 0x08, 0x2A, 0x1C, 0x2A, 0x08, 0x00
-; + (43)
-.db 0x08, 0x08, 0x3E, 0x08, 0x08, 0x00
-; , (44)
-.db 0x00, 0x50, 0x30, 0x00, 0x00, 0x00
-; - (45)
-.db 0x08, 0x08, 0x08, 0x08, 0x08, 0x00
-; . (46)
-.db 0x00, 0x60, 0x60, 0x00, 0x00, 0x00
-; / (47)
-.db 0x20, 0x10, 0x08, 0x04, 0x02, 0x00
-; 0 (48)
-.db 0x3E, 0x51, 0x49, 0x45, 0x3E, 0x00
-; 1 (49)
-.db 0x00, 0x42, 0x7F, 0x40, 0x00, 0x00
-; 2 (50)
-.db 0x42, 0x61, 0x51, 0x49, 0x46, 0x00
-; 3 (51)
-.db 0x21, 0x41, 0x45, 0x4B, 0x31, 0x00
-; 4 (52)
-.db 0x18, 0x14, 0x12, 0x7F, 0x10, 0x00
-; 5 (53)
-.db 0x27, 0x45, 0x45, 0x45, 0x39, 0x00
-; 6 (54)
-.db 0x3C, 0x4A, 0x49, 0x49, 0x30, 0x00
-; 7 (55)
-.db 0x01, 0x71, 0x09, 0x05, 0x03, 0x00
-; 8 (56)
-.db 0x36, 0x49, 0x49, 0x49, 0x36, 0x00
-; 9 (57)
-.db 0x06, 0x49, 0x49, 0x29, 0x1E, 0x00
-; : (58)
-.db 0x00, 0x36, 0x36, 0x00, 0x00, 0x00
-; ; (59)
-.db 0x00, 0x56, 0x36, 0x00, 0x00, 0x00
-; < (60)
-.db 0x00, 0x08, 0x14, 0x22, 0x41, 0x00
-; = (61)
-.db 0x14, 0x14, 0x14, 0x14, 0x14, 0x00
-; > (62)
-.db 0x41, 0x22, 0x14, 0x08, 0x00, 0x00
-; ? (63)
-.db 0x02, 0x01, 0x51, 0x09, 0x06, 0x00
-; @ (64)
-.db 0x32, 0x49, 0x79, 0x41, 0x3E, 0x00
-; A (65)
-.db 0x7E, 0x11, 0x11, 0x11, 0x7E, 0x00
-; B (66)
-.db 0x7F, 0x49, 0x49, 0x49, 0x36, 0x00
-; C (67)
-.db 0x3E, 0x41, 0x41, 0x41, 0x22, 0x00
-; D (68)
-.db 0x7F, 0x41, 0x41, 0x22, 0x1C, 0x00
-; E (69)
-.db 0x7F, 0x49, 0x49, 0x49, 0x41, 0x00
-; F (70)
-.db 0x7F, 0x09, 0x09, 0x01, 0x01, 0x00
-; G (71)
-.db 0x3E, 0x41, 0x41, 0x51, 0x32, 0x00
-; H (72)
-.db 0x7F, 0x08, 0x08, 0x08, 0x7F, 0x00
-; I (73)
-.db 0x00, 0x41, 0x7F, 0x41, 0x00, 0x00
-; J (74)
-.db 0x20, 0x40, 0x41, 0x3F, 0x01, 0x00
-; K (75)
-.db 0x7F, 0x08, 0x14, 0x22, 0x41, 0x00
-; L (76)
-.db 0x7F, 0x40, 0x40, 0x40, 0x40, 0x00
-; M (77)
-.db 0x7F, 0x02, 0x04, 0x02, 0x7F, 0x00
-; N (78)
-.db 0x7F, 0x04, 0x08, 0x10, 0x7F, 0x00
-; O (79)
-.db 0x3E, 0x41, 0x41, 0x41, 0x3E, 0x00
-; P (80)
-.db 0x7F, 0x09, 0x09, 0x09, 0x06, 0x00
-; Q (81)
-.db 0x3E, 0x41, 0x51, 0x21, 0x5E, 0x00
-; R (82)
-.db 0x7F, 0x09, 0x19, 0x29, 0x46, 0x00
-; S (83)
-.db 0x46, 0x49, 0x49, 0x49, 0x31, 0x00
-; T (84)
-.db 0x01, 0x01, 0x7F, 0x01, 0x01, 0x00
-; U (85)
-.db 0x3F, 0x40, 0x40, 0x40, 0x3F, 0x00
-; V (86)
-.db 0x1F, 0x20, 0x40, 0x20, 0x1F, 0x00
-; W (87)
-.db 0x3F, 0x40, 0x38, 0x40, 0x3F, 0x00
-; X (88)
-.db 0x63, 0x14, 0x08, 0x14, 0x63, 0x00
-; Y (89)
-.db 0x07, 0x08, 0x70, 0x08, 0x07, 0x00
-; Z (90)
-.db 0x61, 0x51, 0x49, 0x45, 0x43, 0x00
-; [ (91)
-.db 0x00, 0x7F, 0x41, 0x41, 0x00, 0x00
-; \ (92)
-.db 0x02, 0x04, 0x08, 0x10, 0x20, 0x00
-; ] (93)
-.db 0x00, 0x41, 0x41, 0x7F, 0x00, 0x00
-; ^ (94)
-.db 0x04, 0x02, 0x01, 0x02, 0x04, 0x00
-; _ (95)
-.db 0x40, 0x40, 0x40, 0x40, 0x40, 0x00
-; ` (96)
-.db 0x00, 0x01, 0x02, 0x04, 0x00, 0x00
-; a (97)
-.db 0x20, 0x54, 0x54, 0x54, 0x78, 0x00
-; b (98)
-.db 0x7F, 0x48, 0x44, 0x44, 0x38, 0x00
-; c (99)
-.db 0x38, 0x44, 0x44, 0x44, 0x20, 0x00
-; d (100)
-.db 0x38, 0x44, 0x44, 0x48, 0x7F, 0x00
-; e (101)
-.db 0x38, 0x54, 0x54, 0x54, 0x18, 0x00
-; f (102)
-.db 0x08, 0x7E, 0x09, 0x01, 0x02, 0x00
-; g (103)
-.db 0x08, 0x14, 0x54, 0x54, 0x3C, 0x00
-; h (104)
-.db 0x7F, 0x08, 0x04, 0x04, 0x78, 0x00
-; i (105)
-.db 0x00, 0x44, 0x7D, 0x40, 0x00, 0x00
-; j (106)
-.db 0x20, 0x40, 0x44, 0x3D, 0x00, 0x00
-; k (107)
-.db 0x00, 0x7F, 0x10, 0x28, 0x44, 0x00
-; l (108)
-.db 0x00, 0x41, 0x7F, 0x40, 0x00, 0x00
-; m (109)
-.db 0x7C, 0x04, 0x18, 0x04, 0x78, 0x00
-; n (110)
-.db 0x7C, 0x08, 0x04, 0x04, 0x78, 0x00
-; o (111)
-.db 0x38, 0x44, 0x44, 0x44, 0x38, 0x00
-; p (112)
-.db 0x7C, 0x14, 0x14, 0x14, 0x08, 0x00
-; q (113)
-.db 0x08, 0x14, 0x14, 0x18, 0x7C, 0x00
-; r (114)
-.db 0x7C, 0x08, 0x04, 0x04, 0x08, 0x00
-; s (115)
-.db 0x48, 0x54, 0x54, 0x54, 0x20, 0x00
-; t (116)
-.db 0x04, 0x3F, 0x44, 0x40, 0x20, 0x00
-; u (117)
-.db 0x3C, 0x40, 0x40, 0x20, 0x7C, 0x00
-; v (118)
-.db 0x1C, 0x20, 0x40, 0x20, 0x1C, 0x00
-; w (119)
-.db 0x3C, 0x40, 0x30, 0x40, 0x3C, 0x00
-; x (120)
-.db 0x44, 0x28, 0x10, 0x28, 0x44, 0x00
-; y (121)
-.db 0x0C, 0x50, 0x50, 0x50, 0x3C, 0x00
-; z (122)
-.db 0x44, 0x64, 0x54, 0x4C, 0x44, 0x00
-; { (123)
-.db 0x00, 0x08, 0x36, 0x41, 0x00, 0x00
-; | (124)
-.db 0x00, 0x00, 0x7F, 0x00, 0x00, 0x00
-; } (125)
-.db 0x00, 0x41, 0x36, 0x08, 0x00, 0x00
-; ~ (126)
-.db 0x08, 0x04, 0x08, 0x10, 0x08, 0x00
+;=====================================================
+; DATA: Startup Message
+;=====================================================
+MSG_READY:
+    .db "LiFi Ready", 0, 0    ; 12 bytes = even ?
