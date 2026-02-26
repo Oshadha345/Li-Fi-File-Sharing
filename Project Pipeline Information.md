@@ -4,7 +4,7 @@
 
 This project implements a **Li-Fi (Light Fidelity) optical receiver** in pure AVR assembly. Data transmitted via light (LED/photodiode) is received over UART at 300 baud and displayed in real-time on an SSD1306 OLED screen over I2C.
 
-![Project Architecture](project_architecture.png)
+![Project Architecture](Project-architecture/1-project_architecture.png)
 
 ---
 
