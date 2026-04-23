@@ -3,7 +3,7 @@
 
 ; --- System and UART Configuration ---
 .equ F_CPU      = 16000000          ; 16 MHz external crystal
-.equ BAUD       = 1200             
+.equ BAUD       = 2400             
 .equ UBRR_VAL   = (F_CPU / (16 * BAUD)) - 1
 
 ; --- Keypad Matrix Pin Mapping & Encryption ---
