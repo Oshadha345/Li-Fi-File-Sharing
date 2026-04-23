@@ -10,13 +10,13 @@
         <mxCell id="ikX0Cl_BhO3GXduFo_4o-2" parent="1" style="whiteSpace=wrap;strokeWidth=2;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="Initialize Stack Pointer" vertex="1">
           <mxGeometry height="54" width="222" x="304" y="109" as="geometry" />
         </mxCell>
-        <mxCell id="ikX0Cl_BhO3GXduFo_4o-3" parent="1" style="whiteSpace=wrap;strokeWidth=2;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="Initialize USART TX" vertex="1">
+        <mxCell id="ikX0Cl_BhO3GXduFo_4o-3" parent="1" style="whiteSpace=wrap;strokeWidth=2;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="Initialize USART TX (2400 Baud)" vertex="1">
           <mxGeometry height="54" width="195" x="317" y="213" as="geometry" />
         </mxCell>
-        <mxCell id="ikX0Cl_BhO3GXduFo_4o-4" parent="1" style="whiteSpace=wrap;strokeWidth=2;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="Initialize Keypad GPIO" vertex="1">
+        <mxCell id="ikX0Cl_BhO3GXduFo_4o-4" parent="1" style="whiteSpace=wrap;strokeWidth=2;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="Initialize Keypad GPIO (4x3 Matrix)" vertex="1">
           <mxGeometry height="54" width="219" x="305" y="317" as="geometry" />
         </mxCell>
-        <mxCell id="ikX0Cl_BhO3GXduFo_4o-5" parent="1" style="whiteSpace=wrap;strokeWidth=2;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="Transmit &#39;LiFi Ready&#39; String" vertex="1">
+        <mxCell id="ikX0Cl_BhO3GXduFo_4o-5" parent="1" style="whiteSpace=wrap;strokeWidth=2;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="Init 38kHz Carrier (Timer2 CTC) + Send &#39;LiFi Ready&#39;" vertex="1">
           <mxGeometry height="54" width="251" x="289" y="421" as="geometry" />
         </mxCell>
         <mxCell id="ikX0Cl_BhO3GXduFo_4o-6" parent="1" style="ellipse;aspect=fixed;strokeWidth=2;whiteSpace=wrap;fillColor=#ffe6cc;strokeColor=#d79b00;" value="Start Main Loop" vertex="1">
@@ -40,16 +40,16 @@
         <mxCell id="ikX0Cl_BhO3GXduFo_4o-12" parent="1" style="rhombus;strokeWidth=2;whiteSpace=wrap;fillColor=#f8cecc;strokeColor=#b85450;" value="Is Key &#39;#&#39;&#xa;0x0A?" vertex="1">
           <mxGeometry height="168" width="168" x="110" y="1020" as="geometry" />
         </mxCell>
-        <mxCell id="ikX0Cl_BhO3GXduFo_4o-13" parent="1" style="whiteSpace=wrap;strokeWidth=2;fillColor=#d5e8d4;strokeColor=#82b366;" value="Transmit CR 0x0D" vertex="1">
+        <mxCell id="ikX0Cl_BhO3GXduFo_4o-13" parent="1" style="whiteSpace=wrap;strokeWidth=2;fillColor=#d5e8d4;strokeColor=#82b366;" value="Encrypt (XOR 0x5A) + Transmit CR 0x0D" vertex="1">
           <mxGeometry height="54" width="185" x="-252.5" y="1120" as="geometry" />
         </mxCell>
-        <mxCell id="ikX0Cl_BhO3GXduFo_4o-14" parent="1" style="whiteSpace=wrap;strokeWidth=2;fillColor=#d5e8d4;strokeColor=#82b366;" value="Transmit LF 0x0A" vertex="1">
+        <mxCell id="ikX0Cl_BhO3GXduFo_4o-14" parent="1" style="whiteSpace=wrap;strokeWidth=2;fillColor=#d5e8d4;strokeColor=#82b366;" value="Encrypt (XOR 0x5A) + Transmit LF 0x0A" vertex="1">
           <mxGeometry height="54" width="182" x="-252.5" y="1210" as="geometry" />
         </mxCell>
         <mxCell id="ikX0Cl_BhO3GXduFo_4o-15" parent="1" style="ellipse;aspect=fixed;strokeWidth=2;whiteSpace=wrap;fillColor=#f5f5f5;fontColor=#333333;strokeColor=#666666;" value="Wait Release" vertex="1">
           <mxGeometry height="106" width="106" x="20" y="1264" as="geometry" />
         </mxCell>
-        <mxCell id="ikX0Cl_BhO3GXduFo_4o-16" parent="1" style="whiteSpace=wrap;strokeWidth=2;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="Transmit Key ASCII" vertex="1">
+        <mxCell id="ikX0Cl_BhO3GXduFo_4o-16" parent="1" style="whiteSpace=wrap;strokeWidth=2;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="Encrypt (XOR 0x5A) + Transmit Key ASCII" vertex="1">
           <mxGeometry height="54" width="191" x="230" y="1210" as="geometry" />
         </mxCell>
         <mxCell id="ikX0Cl_BhO3GXduFo_4o-17" parent="1" style="whiteSpace=wrap;strokeWidth=2;fillColor=#fff2cc;strokeColor=#d6b656;" value="Scan Keypad" vertex="1">

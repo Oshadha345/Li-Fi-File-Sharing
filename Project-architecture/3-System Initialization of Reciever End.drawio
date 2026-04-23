@@ -13,37 +13,37 @@
         <mxCell id="Zlzrg9uEuy0slWxwMz5u-38" parent="1" style="whiteSpace=wrap;strokeWidth=2;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="Clear Message Length" vertex="1">
           <mxGeometry height="54" width="214" x="345" y="2043" as="geometry" />
         </mxCell>
-        <mxCell id="Zlzrg9uEuy0slWxwMz5u-39" parent="1" style="whiteSpace=wrap;strokeWidth=2;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="Initialize Hardware: TWI, OLED, USART" vertex="1">
+        <mxCell id="Zlzrg9uEuy0slWxwMz5u-39" parent="1" style="whiteSpace=wrap;strokeWidth=2;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="Initialize Hardware: TWI, OLED, USART RX (2400 Baud)" vertex="1">
           <mxGeometry height="78" width="260" x="322" y="2147" as="geometry" />
         </mxCell>
-        <mxCell id="Zlzrg9uEuy0slWxwMz5u-40" parent="1" style="whiteSpace=wrap;strokeWidth=2;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="Display &#39;Waiting...&#39;" vertex="1">
+        <mxCell id="Zlzrg9uEuy0slWxwMz5u-40" parent="1" style="whiteSpace=wrap;strokeWidth=2;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="Display &#39;Waiting...&#39; (Flash String)" vertex="1">
           <mxGeometry height="54" width="192" x="356" y="2275" as="geometry" />
         </mxCell>
         <mxCell id="Zlzrg9uEuy0slWxwMz5u-41" parent="1" style="ellipse;aspect=fixed;strokeWidth=2;whiteSpace=wrap;fillColor=#f8cecc;strokeColor=#b85450;" value="Start Main Loop" vertex="1">
           <mxGeometry height="127" width="127" x="388" y="2379" as="geometry" />
         </mxCell>
-        <mxCell id="Zlzrg9uEuy0slWxwMz5u-42" parent="1" style="whiteSpace=wrap;strokeWidth=2;fillColor=#d5e8d4;strokeColor=#82b366;" value="Read USART Status Register" vertex="1">
+        <mxCell id="Zlzrg9uEuy0slWxwMz5u-42" parent="1" style="whiteSpace=wrap;strokeWidth=2;fillColor=#d5e8d4;strokeColor=#82b366;" value="Poll USART Status (UCSR0A / RXC0)" vertex="1">
           <mxGeometry height="54" width="256" x="-12" y="2490" as="geometry" />
         </mxCell>
         <mxCell id="Zlzrg9uEuy0slWxwMz5u-43" parent="1" style="rhombus;strokeWidth=2;whiteSpace=wrap;fillColor=#f8cecc;strokeColor=#b85450;" value="Data Available?" vertex="1">
           <mxGeometry height="162" width="162" x="30" y="2620" as="geometry" />
         </mxCell>
-        <mxCell id="Zlzrg9uEuy0slWxwMz5u-44" parent="1" style="whiteSpace=wrap;strokeWidth=2;fillColor=#fff2cc;strokeColor=#d6b656;" value="Read Character from UDR0" vertex="1">
+        <mxCell id="Zlzrg9uEuy0slWxwMz5u-44" parent="1" style="whiteSpace=wrap;strokeWidth=2;fillColor=#fff2cc;strokeColor=#d6b656;" value="Read Encrypted Byte from UDR0" vertex="1">
           <mxGeometry height="54" width="252" x="-16" y="2860" as="geometry" />
         </mxCell>
-        <mxCell id="Zlzrg9uEuy0slWxwMz5u-45" parent="1" style="rhombus;strokeWidth=2;whiteSpace=wrap;fillColor=#f8cecc;strokeColor=#b85450;" value="Is Character&#xa;&#39;\&#xa;&#39; or &#39;\\r&#39;?" vertex="1">
+        <mxCell id="Zlzrg9uEuy0slWxwMz5u-45" parent="1" style="rhombus;strokeWidth=2;whiteSpace=wrap;fillColor=#f8cecc;strokeColor=#b85450;" value="Decrypt (XOR 0x5A). Is Character LF/CR?" vertex="1">
           <mxGeometry height="222" width="222" x="-1" y="2960" as="geometry" />
         </mxCell>
-        <mxCell id="Zlzrg9uEuy0slWxwMz5u-46" parent="1" style="whiteSpace=wrap;strokeWidth=2;fillColor=#ffe6cc;strokeColor=#d79b00;" value="Reset Message Length to 0" vertex="1">
+        <mxCell id="Zlzrg9uEuy0slWxwMz5u-46" parent="1" style="whiteSpace=wrap;strokeWidth=2;fillColor=#ffe6cc;strokeColor=#d79b00;" value="Reset Message Length (r2 = 0)" vertex="1">
           <mxGeometry height="54" width="248" x="-16" y="3290" as="geometry" />
         </mxCell>
         <mxCell id="Zlzrg9uEuy0slWxwMz5u-47" parent="1" style="whiteSpace=wrap;strokeWidth=2;fillColor=#ffe6cc;strokeColor=#d79b00;" value="Clear OLED Display" vertex="1">
           <mxGeometry height="54" width="195" x="193" y="3370" as="geometry" />
         </mxCell>
-        <mxCell id="Zlzrg9uEuy0slWxwMz5u-48" parent="1" style="rhombus;strokeWidth=2;whiteSpace=wrap;fillColor=#f8cecc;strokeColor=#b85450;" value="Is Buffer Full?" vertex="1">
+        <mxCell id="Zlzrg9uEuy0slWxwMz5u-48" parent="1" style="rhombus;strokeWidth=2;whiteSpace=wrap;fillColor=#f8cecc;strokeColor=#b85450;" value="Is Buffer Full? (r2 &gt;= MAX_CHARS)" vertex="1">
           <mxGeometry height="152" width="152" x="375.5" y="2700" as="geometry" />
         </mxCell>
-        <mxCell id="Zlzrg9uEuy0slWxwMz5u-49" parent="1" style="whiteSpace=wrap;strokeWidth=2;fillColor=#d5e8d4;strokeColor=#82b366;" value="Store Character in SRAM Buffer" vertex="1">
+        <mxCell id="Zlzrg9uEuy0slWxwMz5u-49" parent="1" style="whiteSpace=wrap;strokeWidth=2;fillColor=#d5e8d4;strokeColor=#82b366;" value="Store Decrypted Character in SRAM Buffer" vertex="1">
           <mxGeometry height="78" width="260" x="321.5" y="2891" as="geometry" />
         </mxCell>
         <mxCell id="Zlzrg9uEuy0slWxwMz5u-50" parent="1" style="whiteSpace=wrap;strokeWidth=2;fillColor=#d5e8d4;strokeColor=#82b366;" value="Increment Message Length" vertex="1">
