@@ -12,7 +12,7 @@ The system scans a **4x3 matrix keypad**, maps key presses to ASCII, **encrypts 
 * **Software Debounce + Release Detection:** ~20ms debounce and wait-for-release logic to avoid repeated/false triggers.
 * **Flash Lookup Table (`lpm`):** Key index → ASCII mapping stored in program memory to save SRAM.
 * **Secure Byte Transmission:** XOR encryption using a shared key (`SECRET_KEY = 0x5A`) before UART transmission.
-* **UART @ 1200 Baud (8N1):** Configured transmitter on PD1/TX.
+* **UART @ 2400 Baud (8N1):** Configured transmitter on PD1/TX.
 * **38kHz IR Carrier Generation:** Timer2 CTC toggles **PB3 (OC2A)** continuously for IR modulation support.
 * **Special Key Mapping:**
   * `*` → Backspace (`0x08`)
@@ -148,14 +148,14 @@ Internal table:
 ## ⚙️ UART Configuration
 
 - CPU clock: **16 MHz**
-- Baud rate: **1200**
+- Baud rate: **2400**
 - Frame format: **8 data bits, no parity, 1 stop bit (8N1)**
 - UBRR value:
   \[
   UBRR = \left(\frac{F\_CPU}{16 \cdot BAUD}\right) - 1
   \]
 
-With `F_CPU = 16,000,000` and `BAUD = 1200`, firmware uses the computed `UBRR_VAL`.
+With `F_CPU = 16,000,000` and `BAUD = 2400`, firmware uses the computed `UBRR_VAL`.
 
 ---
 
