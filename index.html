@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Li-Fi System | Engineering Viva Showcase</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.0/dist/mermaid.min.js"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<script src="https://unpkg.com/panzoom@9.4.0/dist/panzoom.min.js"></script>
+
+<style>
+  :root {
+    --bg-dark: #070b14;
+    --card-bg: #161e30;
+    --accent-cyan: #38bdf8;
+    --accent-blue: #818cf8;
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    font-family: 'Poppins', sans-serif;
+    background-color: var(--bg-dark);
+    color: var(--text-main);
+    margin: 0;
+    overflow: hidden;
+    touch-action: none;
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  .math-font, .font-mono { font-family: 'JetBrains Mono', monospace; }
+
+  .gradient-text {
+    background: linear-gradient(to right, var(--accent-cyan), var(--accent-blue));
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .grid-bg {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(56, 189, 248, 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(56, 189, 248, 0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  #sidebar {
+    width: 290px;
+    background: linear-gradient(180deg, rgba(15, 21, 35, 0.95) 0%, rgba(7, 11, 20, 0.95) 100%);
+    backdrop-filter: blur(20px);
+    border-right: 1px solid rgba(255, 255, 255, 0.05);
+    display: flex;
+    flex-direction: column;
+    z-index: 20;
+    box-shadow: 10px 0 30px rgba(0, 0, 0, 0.4);
+    flex-shrink: 0;
+    transition: transform 0.3s ease;
+  }
+
+  #main-content {
+    flex: 1;
+    position: relative;
+    z-index: 10;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scroll-behavior: smooth;
+  }
+
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(56, 189, 248, 0.2); border-radius: 10px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(56, 189, 248, 0.4); }
+
+  .nav-btn {
+    padding: 12px 20px;
+    margin: 3px 16px;
+    border-radius: 10px;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-align: left;
+  }
+
+  .nav-btn i { opacity: 0.6; transition: all 0.3s; width: 18px; height: 18px; }
+
+  .nav-btn.active {
+    background: rgba(56, 189, 248, 0.08);
+    border: 1px solid rgba(56, 189, 248, 0.2);
+    color: #fff;
+    transform: translateX(8px);
+    box-shadow: 0 4px 20px rgba(56, 189, 248, 0.1);
+  }
+
+  .nav-btn.active i { opacity: 1; color: var(--accent-cyan); }
+
+  .nav-divider {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.05);
+    margin: 8px 16px;
+  }
+
+  .view-panel {
+    display: none;
+    padding: 40px 60px;
+    min-height: 100%;
+    animation: fadeUp 0.4s ease-out forwards;
+  }
+
+  .view-panel.active { display: block; }
+
+  @keyframes fadeUp {
+    0% { opacity: 0; transform: translateY(15px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+
+  .glass-panel {
+    background: rgba(30, 41, 59, 0.7);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 16px;
+    padding: 24px;
+    transition: transform 0.2s, border-color 0.2s;
+  }
+
+  .glass-panel:hover { border-color: rgba(56, 189, 248, 0.3); }
+
+  .b-card {
+    border-radius: 14px;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 16px;
+  }
+
+  .tag-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border-radius: 999px;
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    background: rgba(56, 189, 248, 0.1);
+    color: #bae6fd;
+    padding: 6px 12px;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+
+  .code-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .c-tab {
+    padding: 10px 16px;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+  }
+
+  .c-tab.active {
+    background: rgba(56, 189, 248, 0.1);
+    color: var(--accent-cyan);
+    border-color: rgba(56, 189, 248, 0.3);
+  }
+
+  .code-display {
+    background: #0b0f19;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 20px;
+    overflow-x: auto;
+    max-height: 540px;
+    overflow-y: auto;
+  }
+
+  .code-display pre { margin: 0; color: #a9b7c6; font-size: 0.85rem; line-height: 1.6; }
+  .c-kw { color: #cc7832; font-weight: bold; }
+  .c-reg { color: #9876aa; }
+  .c-cm { color: #5a7090; font-style: italic; }
+  .c-lbl { color: #ffc66d; }
+  .c-num { color: #6897bb; }
+  .code-snippet { display: none; }
+  .code-snippet.active { display: block; }
+
+  .mermaid-wrapper {
+    width: 100%;
+    min-height: 420px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 12px;
+    border: 1px dashed rgba(56, 189, 248, 0.2);
+    cursor: grab;
+  }
+
+  .mermaid-wrapper:active { cursor: grabbing; }
+  .mermaid-out { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+  .mermaid-out svg { font-family: 'JetBrains Mono', monospace !important; max-width: 100%; }
+
+  .mobile-menu-btn { display: none; }
+
+  .arch-step {
+    cursor: pointer;
+    transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+  }
+
+  .arch-step:hover {
+    transform: translateY(-2px);
+    border-color: rgba(56, 189, 248, 0.5);
+    box-shadow: 0 10px 24px rgba(14, 165, 233, 0.2);
+  }
+
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(2, 8, 23, 0.75);
+    backdrop-filter: blur(6px);
+    z-index: 60;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  .modal-overlay.open { display: flex; }
+
+  .modal-card {
+    width: min(900px, 100%);
+    border-radius: 18px;
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.95), rgba(2, 6, 23, 0.95));
+    border: 1px solid rgba(56, 189, 248, 0.4);
+    box-shadow: 0 30px 90px rgba(2, 132, 199, 0.25);
+    padding: 24px;
+  }
+
+  @media (max-width: 768px) {
+    #sidebar { position: absolute; height: 100%; transform: translateX(-100%); }
+    #sidebar.open { transform: translateX(0); }
+    .mobile-menu-btn {
+      display: block;
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      z-index: 50;
+      background: var(--card-bg);
+      padding: 8px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .view-panel { padding: 84px 20px 40px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="grid-bg"></div>
+
+<button class="mobile-menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')">
+  <i data-lucide="menu" class="text-white"></i>
+</button>
+
+<aside id="sidebar">
+  <div class="p-8 pb-6 border-b border-white/5">
+    <div class="flex items-center gap-3 mb-1">
+      <i data-lucide="zap" class="text-sky-400 w-8 h-8 drop-shadow-[0_0_8px_rgba(56,189,248,0.8)]"></i>
+      <h1 class="text-2xl font-black tracking-tight text-white uppercase">LI-FI<span class="text-sky-400">CORE</span></h1>
+    </div>
+    <p class="text-sky-500 font-mono text-[10px] tracking-widest mt-2 uppercase">Optical Comms Protocol</p>
+  </div>
+
+  <div class="px-4 pt-4">
+    <img alt="Repo stars" src="https://img.shields.io/github/stars/Oshadha345/Li-Fi-File-Sharing?style=for-the-badge&logo=github&color=0ea5e9">
+    <img alt="Repo language" class="mt-2" src="https://img.shields.io/github/languages/top/Oshadha345/Li-Fi-File-Sharing?style=for-the-badge&color=6366f1">
+    <img alt="Last commit" class="mt-2" src="https://img.shields.io/github/last-commit/Oshadha345/Li-Fi-File-Sharing?style=for-the-badge&color=22d3ee">
+  </div>
+
+  <div class="flex-1 py-4 flex flex-col overflow-y-auto w-full">
+    <div class="text-[10px] uppercase font-bold text-slate-600 px-8 py-2 tracking-widest">Project Space</div>
+    <button class="nav-btn active" onclick="switchView('overview', this)"><i data-lucide="users"></i> Overview & Team</button>
+    <button class="nav-btn" onclick="switchView('architecture', this)"><i data-lucide="network"></i> Architecture</button>
+
+    <div class="nav-divider"></div>
+    <div class="text-[10px] uppercase font-bold text-slate-600 px-8 py-2 tracking-widest">Protocols</div>
+    <button class="nav-btn" onclick="switchView('innovation', this)"><i data-lucide="lightbulb"></i> OOK and Carrier Math</button>
+    <button class="nav-btn" onclick="switchView('security', this)"><i data-lucide="shield"></i> XOR Security</button>
+
+    <div class="nav-divider"></div>
+    <div class="text-[10px] uppercase font-bold text-slate-600 px-8 py-2 tracking-widest">Implementation</div>
+    <button class="nav-btn" onclick="switchView('code', this)"><i data-lucide="code-2"></i> ASM Core</button>
+    <button class="nav-btn" onclick="switchView('media', this)"><i data-lucide="play-circle"></i> Media & Demos</button>
+  </div>
+</aside>
+
+<main id="main-content">
+  <section id="view-overview" class="view-panel active">
+    <div class="max-w-6xl mx-auto">
+      <div class="glass-panel mb-6">
+        <span class="tag-pill"><i data-lucide="cpu" class="w-4 h-4"></i> EE322 Embedded Systems Design</span>
+        <h2 class="text-4xl font-bold mt-4 mb-2">Optical Wireless Communication System <span class="gradient-text">(IR Data Link)</span></h2>
+        <p class="text-cyan-200 text-sm md:text-base font-medium">Engineering a Bare-Metal, Secure Optical Data Link via OOK Modulation and Hardware Encryption.</p>
+        <p class="text-lg text-slate-300 leading-relaxed">
+          Core Mission: To design and implement a robust, unidirectional optical data transmission system using custom-etched PCBs, completely immune to ambient light interference.
+        </p>
+        <p class="text-base text-slate-300 leading-relaxed mt-3">
+          Traditional wireless communication relies on crowded RF bands. Our project explores Free-Space Optical communication using infrared light. We initially prototyped a baseband system using a high-power 1W visible LED, but sunlight and room lighting saturated the receiver and broke long-distance reliability. We then engineered a strict modulated IR architecture using a 940nm IR LED, a stable 38kHz carrier, and hardware On-Off Keying through external CMOS logic to produce a dependable, noise-immune wireless serial cable.
+        </p>
+        <div class="mt-5 flex flex-wrap gap-3">
+          <a href="https://github.com/Oshadha345/Li-Fi-File-Sharing" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 rounded-xl border border-cyan-400/40 bg-cyan-400/10 px-4 py-2 text-sm text-cyan-100 hover:bg-cyan-400/20">
+            <i data-lucide="github" class="w-4 h-4"></i> View Source Repository
+          </a>
+          <div class="inline-flex items-center gap-2 rounded-xl border border-fuchsia-400/40 bg-fuchsia-400/10 px-4 py-2 text-sm text-fuchsia-100">
+            <i data-lucide="radio" class="w-4 h-4"></i> 2400-Baud UART over 38kHz IR
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
+        <article class="glass-panel">
+          <h3 class="text-xl font-semibold mb-2 text-cyan-300">Oshadha (S.M.O.T. Samarakoon)</h3>
+          <p class="text-sm text-slate-300 leading-7">Hardware Fabrication and Digital Deployment: lead for physical hardware assembly, precision soldering, frontend development, and GitHub CI/CD flow.</p>
+        </article>
+        <article class="glass-panel">
+          <h3 class="text-xl font-semibold mb-2 text-cyan-300">Movindu (D.M.M.L. Dissanayake)</h3>
+          <p class="text-sm text-slate-300 leading-7">Hardware Architecture and PCB Design: routed CMOS logic and ATmega328P power domains, and drove product form-factor constraints.</p>
+        </article>
+        <article class="glass-panel">
+          <h3 class="text-xl font-semibold mb-2 text-cyan-300">Thaariq (M.T. Firdous)</h3>
+          <p class="text-sm text-slate-300 leading-7">Firmware Engineer and Systems Logic: developed bare-metal ATmega328P assembly, timers, TWI driver, XOR pipeline, and software diagnostics.</p>
+        </article>
+      </div>
+
+      <div class="glass-panel">
+        <h3 class="text-xl font-semibold mb-3 flex items-center gap-2"><i data-lucide="git-compare-arrows" class="text-sky-400"></i> Evolution: Baseband to Modulated IR</h3>
+        <p class="text-sm text-slate-300 leading-7">
+          The first prototype used a 1W visible LED in baseband mode. It worked in controlled conditions but failed under sunlight and ambient illumination. The final architecture shifted to 940nm IR with a 38kHz carrier and TSOP1838 demodulation, dramatically improving immunity to environmental light and producing stable free-space communication.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section id="view-architecture" class="view-panel">
+    <div class="max-w-6xl mx-auto">
+      <h2 class="text-4xl font-bold mb-4">System <span class="gradient-text">Architecture</span></h2>
+      <p class="text-lg text-slate-300 mb-8">Pipeline walkaway from keypad event to OLED glyph rendering.</p>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-6">
+        <button class="b-card arch-step text-left" onclick="openArchStep('step1')"><h3 class="font-semibold text-cyan-200">1. Data Generation</h3><p class="text-sm text-slate-300 mt-2">4x4 keypad scanning with GPIO polling and software debounce.</p></button>
+        <button class="b-card arch-step text-left" onclick="openArchStep('step2')"><h3 class="font-semibold text-cyan-200">2. Baseband Framing</h3><p class="text-sm text-slate-300 mt-2">ASCII to UART frame on TX Pin 3 at 9600 baud.</p></button>
+        <button class="b-card arch-step text-left" onclick="openArchStep('step3')"><h3 class="font-semibold text-cyan-200">3. Hardware Modulation</h3><p class="text-sm text-slate-300 mt-2">74HC04 and 74HC08 perform OOK with the 38kHz carrier.</p></button>
+        <button class="b-card arch-step text-left" onclick="openArchStep('step4')"><h3 class="font-semibold text-cyan-200">4. Optical Channel</h3><p class="text-sm text-slate-300 mt-2">S8050 stage drives 940nm IR photons through free space.</p></button>
+        <button class="b-card arch-step text-left" onclick="openArchStep('step5')"><h3 class="font-semibold text-cyan-200">5. Sensor Demodulation</h3><p class="text-sm text-slate-300 mt-2">TSOP1838 filter chain strips 38kHz and restores baseband.</p></button>
+        <button class="b-card arch-step text-left" onclick="openArchStep('step6')"><h3 class="font-semibold text-cyan-200">6. Decode and Display</h3><p class="text-sm text-slate-300 mt-2">RX AVR decrypts payload and renders SSD1306 via TWI.</p></button>
+      </div>
+
+      <div class="glass-panel mb-6 p-1">
+        <div class="mermaid-wrapper" id="zoom-area-main">
+          <div class="mermaid-out mermaid">
+            graph LR
+              classDef dark fill:#161e30,stroke:#38bdf8,stroke-width:2px,color:#fff;
+              classDef light fill:#1e293b,stroke:#818cf8,stroke-width:2px,color:#fff;
+
+              A[Keypad Matrix Scan]:::dark --> B[UART Frame 2400 Baud]:::dark
+              B --> C[74HC04 Invert UART]:::light
+              C --> D[74HC08 AND with 38kHz Carrier]:::light
+              D --> E((940nm IR LED)):::light
+              E -. Free Space .-> F((TSOP1838)):::light
+              F --> G[UART RX + XOR Decrypt]:::dark
+              G --> H[TWI / I2C Write]:::dark
+              H --> I[SSD1306 OLED]:::dark
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="glass-panel p-4">
+          <h4 class="font-semibold text-sky-300 mb-3">Transmitter Block</h4>
+          <img src="media/images/2-Transmitter Side.png" alt="Transmitter flowchart" class="w-full max-w-4xl mx-auto rounded-xl object-contain shadow-[0_0_30px_rgba(56,189,248,0.15)] aspect-video">
+        </div>
+        <div class="glass-panel p-4">
+          <h4 class="font-semibold text-sky-300 mb-3">Receiver Init Block</h4>
+          <img src="media/images/3-System Initialization of Reciever End.png" alt="Receiver initialization flowchart" class="w-full max-w-4xl mx-auto rounded-xl object-contain shadow-[0_0_30px_rgba(56,189,248,0.15)] aspect-video">
+        </div>
+        <div class="glass-panel p-4">
+          <h4 class="font-semibold text-sky-300 mb-3">Display Subroutine Block</h4>
+          <img src="media/images/4-Display Subroutine.png" alt="Display subroutine flowchart" class="w-full max-w-4xl mx-auto rounded-xl object-contain shadow-[0_0_30px_rgba(56,189,248,0.15)] aspect-video">
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="view-innovation" class="view-panel">
+    <div class="max-w-5xl mx-auto">
+      <h2 class="text-4xl font-bold mb-4">Deep Dive: <span class="gradient-text">OOK Modulation and Carrier Math</span></h2>
+      <p class="text-lg text-slate-300 mb-8">Hardware gating and timer synthesis guarantee stable carrier generation with almost zero firmware overhead.</p>
+
+      <div class="glass-panel mb-6">
+        <h3 class="text-xl font-semibold text-sky-300 mb-3">Double Inversion Trick</h3>
+        <p class="text-sm text-slate-300 leading-7">
+          Standard UART idles at HIGH (5V). We route TX through a 74HC04 inverter so idle becomes LOW (0V), preventing continuous IR emission. This saves LED current, prevents unnecessary heating, and avoids AGC desensitization in the TSOP1838 during idle windows.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <div class="glass-panel">
+          <h3 class="text-xl font-semibold mb-4 text-sky-300">Carrier Generation (Timer2 CTC)</h3>
+          <div class="b-card math-font text-sky-200 text-sm overflow-x-auto">
+            f_carrier = f_clock / (2 * N * (1 + OCR2A))
+          </div>
+          <p class="text-sm text-slate-300 mt-4 leading-7">
+            With f_clock = 16MHz and N = 1, selecting OCR2A = 209 yields exactly 38.095kHz. The toggling happens in hardware compare mode, so the CPU is free for keypad scanning and serial framing.
+          </p>
+        </div>
+
+        <div class="glass-panel">
+          <h3 class="text-xl font-semibold mb-4 text-sky-300">AND Gate OOK Mixer</h3>
+          <p class="text-sm text-slate-300 leading-7">
+            74HC08 performs m(t) * c(t): data and carrier are multiplied in logic hardware. Logic 1 data passes the 38kHz carrier; logic 0 data suppresses emission. The result is clean OOK bursts compatible with TSOP demodulators.
+          </p>
+          <div class="b-card mt-4 math-font text-fuchsia-200 text-sm text-center">S(t) = m(t) * c(t)</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="view-security" class="view-panel">
+    <div class="max-w-5xl mx-auto">
+      <h2 class="text-4xl font-bold mb-4">Security: <span class="gradient-text">Symmetric XOR Cipher</span></h2>
+      <p class="text-lg text-slate-300 mb-8">Inline byte masking at assembly level, aligned with tight AVR constraints.</p>
+
+      <div class="glass-panel mb-6">
+        <p class="text-sm text-slate-300 leading-7">
+          AES-class ciphers are expensive for an 8-bit AVR under strict RAM and timing limits. XOR encryption maps directly to a single-cycle eor instruction, giving deterministic low-latency transformation in the UART path.
+        </p>
+        <div class="b-card mt-4 math-font text-center text-cyan-200">Plaintext XOR Secret Key (0x5A) = Ciphertext</div>
+        <p class="text-sm text-slate-300 mt-4 leading-7">
+          On the receiver, applying the same key (0x5A) with eor reverses the transformation exactly, restoring plaintext before OLED rendering.
+        </p>
+      </div>
+
+      <div class="glass-panel mb-6 overflow-x-auto">
+        <table class="w-full min-w-[580px] text-sm border-collapse">
+          <thead>
+            <tr class="text-left border-b border-white/10">
+              <th class="py-2 pr-3">Stage</th>
+              <th class="py-2 pr-3">Data (Binary)</th>
+              <th class="py-2 pr-3">Hex</th>
+              <th class="py-2">ASCII</th>
+            </tr>
+          </thead>
+          <tbody class="text-slate-300">
+            <tr class="border-b border-white/5"><td class="py-2 pr-3">Original Keypress</td><td class="text-sky-300">0100 0001</td><td>0x41</td><td>'A'</td></tr>
+            <tr class="border-b border-white/5"><td class="py-2 pr-3">Secret Key</td><td class="text-fuchsia-300">0101 1010</td><td>0x5A</td><td>-</td></tr>
+            <tr class="border-b border-white/5"><td class="py-2 pr-3">Encrypted TX</td><td class="text-red-300">0001 1011</td><td>0x1B</td><td>ESC</td></tr>
+            <tr><td class="py-2 pr-3">Decrypted RX</td><td class="text-green-300">0100 0001</td><td>0x41</td><td>'A'</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <article class="glass-panel p-4"><h3 class="text-lg font-semibold text-cyan-200">Bandwidth Limits</h3><p class="text-sm text-slate-300 mt-2">At 115200 baud, symbols become too short for robust 38kHz envelope extraction. 9600 and 2400 offer reliable demodulation margins in real rooms.</p></article>
+        <article class="glass-panel p-4"><h3 class="text-lg font-semibold text-cyan-200">Photodiode Saturation</h3><p class="text-sm text-slate-300 mt-2">Strong direct flashlight exposure can saturate the sensor front-end and temporarily reduce dynamic response.</p></article>
+        <article class="glass-panel p-4"><h3 class="text-lg font-semibold text-cyan-200">Line-of-Sight</h3><p class="text-sm text-slate-300 mt-2">Optical beam obstruction can introduce corruption or packet loss, requiring careful placement in deployments.</p></article>
+      </div>
+    </div>
+  </section>
+
+  <section id="view-code" class="view-panel">
+    <div class="max-w-6xl mx-auto h-full flex flex-col">
+      <h2 class="text-4xl font-bold mb-4">ASM <span class="gradient-text">Core Viewer</span></h2>
+      <p class="text-lg text-slate-300 mb-6">Direct subroutine excerpts from transmitter and receiver assembly sources.</p>
+
+      <div class="code-tabs">
+        <button class="c-tab active" onclick="switchCode('code-carrier', this)">Carrier (CARRIER_INIT)</button>
+        <button class="c-tab" onclick="switchCode('code-securetx', this)">Secure TX (USART_TRANSMIT_SECURE)</button>
+        <button class="c-tab" onclick="switchCode('code-securerx', this)">Secure RX (MAIN_LOOP stage)</button>
+        <button class="c-tab" onclick="switchCode('code-twi', this)">I2C/TWI (TWI_WRITE)</button>
+      </div>
+
+      <div id="code-carrier" class="code-snippet active code-display">
+<pre><code><span class="c-cm">;==========================================================================</span>
+<span class="c-cm">; CARRIER_INIT: Generates continuous 38kHz square wave on PB3 (Leg 17)</span>
+<span class="c-cm">; Uses Timer2 in CTC Mode. Calculation: 16MHz / (2 * 1 * 38000) - 1 = 210</span>
+<span class="c-cm">;==========================================================================</span>
+<span class="c-lbl">CARRIER_INIT:</span>
+    <span class="c-kw">in</span>    r16, DDRB
+    <span class="c-kw">ori</span>   r16, (<span class="c-num">1</span>&lt;&lt;<span class="c-num">3</span>)               <span class="c-cm">; Set PB3 as Output</span>
+    <span class="c-kw">out</span>   DDRB, r16
+    <span class="c-kw">ldi</span>   r16, <span class="c-num">210</span>
+    <span class="c-kw">sts</span>   OCR2A, r16
+    <span class="c-kw">ldi</span>   r16, (<span class="c-num">1</span>&lt;&lt;COM2A0) | (<span class="c-num">1</span>&lt;&lt;WGM21)
+    <span class="c-kw">sts</span>   TCCR2A, r16
+    <span class="c-kw">ldi</span>   r16, (<span class="c-num">1</span>&lt;&lt;CS20)
+    <span class="c-kw">sts</span>   TCCR2B, r16
+    <span class="c-kw">ret</span></code></pre>
+      </div>
+
+      <div id="code-securetx" class="code-snippet code-display">
+<pre><code><span class="c-cm">; --- NEW: Encryption Subroutine ---</span>
+<span class="c-lbl">USART_TRANSMIT_SECURE:</span>
+    <span class="c-kw">push</span>  r17
+    <span class="c-kw">ldi</span>   r17, SECRET_KEY           <span class="c-cm">; Load the secret key</span>
+    <span class="c-kw">eor</span>   r16, r17                  <span class="c-cm">; Encrypt the character in r16</span>
+    <span class="c-kw">rcall</span> USART_TRANSMIT            <span class="c-cm">; Send the garbled byte over IR</span>
+    <span class="c-kw">eor</span>   r16, r17                  <span class="c-cm">; Restore r16 to its original value just in case</span>
+    <span class="c-kw">pop</span>   r17
+    <span class="c-kw">ret</span></code></pre>
+      </div>
+
+      <div id="code-securerx" class="code-snippet code-display">
+<pre><code><span class="c-lbl">MAIN_LOOP:</span>
+    <span class="c-kw">lds</span>   r16, UCSR0A
+    <span class="c-kw">sbrs</span>  r16, RXC0                 <span class="c-cm">; Wait for data from the VS1838B</span>
+    <span class="c-kw">rjmp</span>  MAIN_LOOP
+
+    <span class="c-kw">lds</span>   r16, UDR0                 <span class="c-cm">; Grab the received encrypted byte</span>
+
+    <span class="c-cm">; --- NEW: DECRYPTION STAGE ---</span>
+    <span class="c-kw">push</span>  r17
+    <span class="c-kw">ldi</span>   r17, SECRET_KEY           <span class="c-cm">; Load the secret key</span>
+    <span class="c-kw">eor</span>   r16, r17                  <span class="c-cm">; Un-garble it back into readable ASCII!</span>
+    <span class="c-kw">pop</span>   r17
+    <span class="c-cm">; -----------------------------</span></code></pre>
+      </div>
+
+      <div id="code-twi" class="code-snippet code-display">
+<pre><code><span class="c-lbl">TWI_WRITE:</span>
+    <span class="c-kw">sts</span>   TWDR, r16                 <span class="c-cm">; Write byte into TWI data register</span>
+    <span class="c-kw">ldi</span>   r16, (<span class="c-num">1</span> &lt;&lt; TWINT) | (<span class="c-num">1</span> &lt;&lt; TWEN)
+    <span class="c-kw">sts</span>   TWCR, r16                 <span class="c-cm">; Trigger transmission</span>
+<span class="c-lbl">TWI_WRITE_WAIT:</span>
+    <span class="c-kw">lds</span>   r16, TWCR
+    <span class="c-kw">sbrs</span>  r16, TWINT                <span class="c-cm">; Wait for completion</span>
+    <span class="c-kw">rjmp</span>  TWI_WRITE_WAIT
+    <span class="c-kw">ret</span></code></pre>
+      </div>
+    </div>
+  </section>
+
+  <section id="view-media" class="view-panel">
+    <div class="max-w-6xl mx-auto">
+      <h2 class="text-4xl font-bold mb-4">Media <span class="gradient-text">and Demos</span></h2>
+      <p class="text-lg text-slate-300 mb-8">All media assets loaded from the unified root media directory with responsive non-cropping presentation.</p>
+
+      <div class="glass-panel mb-6 text-center">
+        <h3 class="text-xl font-semibold mb-4 text-sky-400">Main End-to-End Demo</h3>
+        <video class="w-full max-w-4xl mx-auto rounded-xl object-contain shadow-[0_0_30px_rgba(56,189,248,0.15)]" style="max-height: 70vh;" controls muted preload="metadata">
+          <source src="media/video/Both in one frame.mp4" type="video/mp4">
+          Your browser does not support the video tag.
+        </video>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <div class="glass-panel text-center">
+          <h3 class="text-lg font-semibold mb-3 text-sky-300">TX Side Video</h3>
+          <video class="w-full max-w-4xl mx-auto rounded-xl object-contain shadow-[0_0_30px_rgba(56,189,248,0.15)]" style="max-height: 70vh;" controls muted preload="metadata">
+            <source src="media/video/TX Side video.mp4" type="video/mp4">
+          </video>
+        </div>
+        <div class="glass-panel text-center">
+          <h3 class="text-lg font-semibold mb-3 text-sky-300">RX Side Video</h3>
+          <video class="w-full max-w-4xl mx-auto rounded-xl object-contain shadow-[0_0_30px_rgba(56,189,248,0.15)]" style="max-height: 70vh;" controls muted preload="metadata">
+            <source src="media/video/RX Side video.mp4" type="video/mp4">
+          </video>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <article class="glass-panel">
+          <h3 class="text-lg font-semibold mb-3 text-sky-300">Transmitter Simulation</h3>
+          <img src="media/images/Transmitter simulation.png" alt="Transmitter simulation" class="w-full max-w-4xl mx-auto rounded-xl object-contain shadow-[0_0_30px_rgba(56,189,248,0.15)] aspect-video">
+        </article>
+        <article class="glass-panel">
+          <h3 class="text-lg font-semibold mb-3 text-sky-300">Receiver Simulation</h3>
+          <img src="media/images/Receiver simulation.png" alt="Receiver simulation" class="w-full max-w-4xl mx-auto rounded-xl object-contain shadow-[0_0_30px_rgba(56,189,248,0.15)] aspect-video">
+        </article>
+      </div>
+
+      <div class="glass-panel mt-6">
+        <h3 class="text-xl font-semibold mb-4 text-cyan-200">Important Engineering Decisions</h3>
+        <div class="space-y-3 text-sm text-slate-300 leading-7">
+          <details class="b-card"><summary class="cursor-pointer font-semibold text-cyan-200">Bandwidth: Why not 115200 baud?</summary><p class="mt-2">At 115200 baud, each bit is about 8.6us and may not provide enough 38kHz cycles for stable TSOP envelope recovery. Lower baud operation improves BER in realistic ambient conditions.</p></details>
+          <details class="b-card"><summary class="cursor-pointer font-semibold text-cyan-200">Photodiode saturation concern</summary><p class="mt-2">Strong direct illumination can saturate the sensor front-end. Normal indoor ambient is filtered, but intense directed light can temporarily blind valid bursts.</p></details>
+          <details class="b-card"><summary class="cursor-pointer font-semibold text-cyan-200">Full-duplex scaling challenges</summary><p class="mt-2">Bidirectional optical links require crosstalk controls such as WDM bands (for example 850nm and 940nm) or strict TDM scheduling and synchronization.</p></details>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div id="arch-modal" class="modal-overlay" onclick="closeArchStep(event)">
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="arch-modal-title">
+    <div class="flex items-start justify-between gap-4 mb-3">
+      <h3 id="arch-modal-title" class="text-2xl font-bold text-cyan-200">Architecture Step</h3>
+      <button type="button" onclick="closeArchStep()" class="rounded-lg border border-white/15 bg-black/30 px-3 py-1 text-sm text-slate-200 hover:border-cyan-400/60">Close</button>
+    </div>
+    <p id="arch-modal-body" class="text-slate-300 leading-7"></p>
+  </div>
+</div>
+
+<script>
+  mermaid.initialize({ startOnLoad: true, theme: "dark" });
+  lucide.createIcons();
+
+  const archStepDetails = {
+    step1: {
+      title: "Step 1: Data Generation (Input Stage)",
+      body: "A 4x4 Matrix Keypad is scanned by the transmitter ATmega328P via optimized GPIO polling. Software debouncing algorithms prevent mechanical contact bounce artifacts before frame generation."
+    },
+    step2: {
+      title: "Step 2: Baseband Framing (Serial Stage)",
+      body: "The ATmega328P maps each keystroke to its ASCII value and emits a standard UART frame from Pin 3 (TX) at 9600 baud."
+    },
+    step3: {
+      title: "Step 3: Hardware Modulation (OOK Stage)",
+      body: "Raw UART is unsuitable for direct optical transfer. The signal enters a CMOS logic path (74HC04 NOT + 74HC08 AND) where data is multiplied with a strict 38kHz carrier to produce On-Off Keying."
+    },
+    step4: {
+      title: "Step 4: Electro-Optical Conversion (Physical Channel)",
+      body: "The modulated electrical pulse drives an S8050 NPN transistor stage, converting logic activity into 940nm infrared photons traveling through free space."
+    },
+    step5: {
+      title: "Step 5: Physical Demodulation (Sensor Stage)",
+      body: "TSOP1838 captures the photons, rejects sunlight and room light with its active 38kHz bandpass filter, and uses envelope detection to reconstruct pure UART baseband transitions."
+    },
+    step6: {
+      title: "Step 6: Decoding and Display (Output Stage)",
+      body: "The receiving ATmega328P parses UART frames, decrypts payload bytes using the shared XOR key, and renders text on a 0.91 inch SSD1306 OLED through a custom TWI driver and 5x7 font map."
+    }
+  };
+
+  const mermaidElem = document.querySelector(".mermaid-out");
+  if (mermaidElem) {
+    panzoom(mermaidElem, { maxZoom: 3, minZoom: 0.5, bounds: true, boundsPadding: 0.1 });
+  }
+
+  function switchView(viewId, btnEl) {
+    document.querySelectorAll(".view-panel").forEach((el) => el.classList.remove("active"));
+    document.querySelectorAll(".nav-btn").forEach((el) => el.classList.remove("active"));
+
+    const view = document.getElementById("view-" + viewId);
+    if (view) view.classList.add("active");
+    if (btnEl) btnEl.classList.add("active");
+
+    const sidebar = document.getElementById("sidebar");
+    if (sidebar) sidebar.classList.remove("open");
+
+    const main = document.getElementById("main-content");
+    if (main) main.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function switchCode(codeId, btnEl) {
+    document.querySelectorAll(".code-snippet").forEach((el) => el.classList.remove("active"));
+    document.querySelectorAll(".c-tab").forEach((el) => el.classList.remove("active"));
+
+    const pane = document.getElementById(codeId);
+    if (pane) pane.classList.add("active");
+    if (btnEl) btnEl.classList.add("active");
+  }
+
+  function openArchStep(stepId) {
+    const modal = document.getElementById("arch-modal");
+    const title = document.getElementById("arch-modal-title");
+    const body = document.getElementById("arch-modal-body");
+    const details = archStepDetails[stepId];
+    if (!modal || !title || !body || !details) return;
+
+    title.textContent = details.title;
+    body.textContent = details.body;
+    modal.classList.add("open");
+    document.body.style.overflow = "hidden";
+  }
+
+  function closeArchStep(evt) {
+    const modal = document.getElementById("arch-modal");
+    if (!modal) return;
+    if (evt && evt.target && evt.target.id !== "arch-modal") return;
+    modal.classList.remove("open");
+    document.body.style.overflow = "";
+  }
+
+  document.addEventListener("keydown", function (evt) {
+    if (evt.key === "Escape") closeArchStep();
+  });
+</script>
+</body>
+</html>
